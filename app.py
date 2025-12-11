@@ -14,7 +14,70 @@ db.init_app(app)
 # --- ROUTE ---
 @app.route('/')
 def home():
-    return render_template('dashboard.html')
+    # --- 1. KPI CARDS (Query Real-time ke Database) ---
+    total_siswa = DimSiswa.query.count()
+    total_buku = DimBuku.query.count()
+    
+    # Menghitung Total Durasi (Sum)
+    # Menggunakan func.sum dari SQLAlchemy untuk menjumlahkan kolom
+    total_durasi_query = db.session.query(func.sum(FactAktivitasBaca.durasi_menit)).scalar()
+    total_durasi_jam = round(total_durasi_query / 60, 1) if total_durasi_query else 0
+    
+    # Menghitung Total Halaman
+    total_halaman = db.session.query(func.sum(FactAktivitasBaca.halaman_selesai)).scalar() or 0
+
+    # --- 2. QUERY UNTUK GRAFIK ---
+
+    # A. Top 5 Buku Terpopuler
+    # Logic: Join Buku & Fact -> Group By Judul -> Count Fact -> Urutkan Terbanyak -> Ambil 5
+    top_buku_query = db.session.query(
+        DimBuku.judul_buku, 
+        func.count(FactAktivitasBaca.id_fact).label('jumlah_baca')
+    ).join(FactAktivitasBaca, DimBuku.id_buku == FactAktivitasBaca.id_buku)\
+     .group_by(DimBuku.judul_buku)\
+     .order_by(func.count(FactAktivitasBaca.id_fact).desc())\
+     .limit(5).all()
+
+    # Pisahkan hasil query menjadi dua list (Label dan Data) untuk Chart.js
+    chart_buku_labels = [b.judul_buku for b in top_buku_query]
+    chart_buku_data = [b.jumlah_baca for b in top_buku_query]
+
+    # B. Partisipasi per Kelas
+    # Logic: Join Siswa & Fact -> Group By Kelas -> Sum Durasi
+    kelas_query = db.session.query(
+        DimSiswa.kelas,
+        func.sum(FactAktivitasBaca.durasi_menit)
+    ).join(FactAktivitasBaca, DimSiswa.id_siswa == FactAktivitasBaca.id_siswa)\
+     .group_by(DimSiswa.kelas)\
+     .order_by(DimSiswa.kelas).all()
+
+    chart_kelas_labels = [f"Kelas {k.kelas}" for k in kelas_query]
+    chart_kelas_data = [int(k[1]) for k in kelas_query]
+
+    # C. Trend Aktivitas Harian
+    # Logic: Group By Tanggal Baca -> Sum Durasi
+    trend_query = db.session.query(
+        FactAktivitasBaca.tanggal_baca,
+        func.sum(FactAktivitasBaca.durasi_menit)
+    ).group_by(FactAktivitasBaca.tanggal_baca)\
+     .order_by(FactAktivitasBaca.tanggal_baca).all()
+
+    # Format tanggal menjadi string 'YYYY-MM-DD' agar bisa dibaca grafik
+    chart_trend_labels = [t.tanggal_baca.strftime('%Y-%m-%d') for t in trend_query]
+    chart_trend_data = [int(t[1]) for t in trend_query]
+
+    # Kirim semua data ke dashboard.html
+    return render_template('dashboard_real.html', 
+                           kpi={
+                               'siswa': total_siswa, 
+                               'buku': total_buku, 
+                               'durasi': total_durasi_jam,
+                               'halaman': total_halaman
+                           },
+                           chart_buku={'labels': chart_buku_labels, 'data': chart_buku_data},
+                           chart_kelas={'labels': chart_kelas_labels, 'data': chart_kelas_data},
+                           chart_trend={'labels': chart_trend_labels, 'data': chart_trend_data}
+                           )
 
 @app.route('/buku_table')
 def buku_table():

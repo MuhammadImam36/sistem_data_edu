@@ -1,0 +1,13 @@
+id_buku,judul_buku,kategori,total_halaman
+101,Laskar Pelangi,Fiksi,529
+102,Bumi Manusia,Fiksi,535
+103,Misteri Hutan Larangan,Fiksi,180
+104,Fisika Dasar,Sains,250
+105,Biologi Modern,Sains,300
+106,Matematika Diskrit,Sains,150
+107,Sejarah Dunia,Sejarah,400
+108,Atomic Habits,Self-Help,320
+109,Filosofi Teras,Self-Help,300
+110,Algoritma Pemrograman,Teknologi,200
+111,Data Science untuk Pemula,Teknologi,220
+112,Cantik Itu Luka,Fiksi,480
